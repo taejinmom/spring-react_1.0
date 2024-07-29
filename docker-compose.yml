@@ -1,0 +1,21 @@
+version: '3'
+services:
+  app:
+    image: my-spring-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8111:8111"
+    networks:
+      - my-network
+  jenkins:
+    image: jenkins/jenkins:lts
+    ports:
+      - "8081:8080"
+      - "50000:50000"
+    networks:
+      - my-network
+
+networks:
+  my-network:
