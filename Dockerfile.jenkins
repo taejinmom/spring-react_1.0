@@ -9,8 +9,13 @@ RUN apt-get update && apt-get install -y \
     curl \
     sudo \
     unzip \
+    vim \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# 서버 시간 설정
+RUN echo "Asia/Seoul" > /etc/timezone
+RUN ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime
 
 # Gradle 설치
 ENV GRADLE_VERSION=7.6.1
@@ -21,9 +26,13 @@ RUN curl -Lo gradle.zip https://services.gradle.org/distributions/gradle-${GRADL
 
 # 모든 사용자에게 alias 적용
 RUN echo "alias ll='ls -la'" >> /etc/profile && \
+    echo "alias ll='ls -la'" >> /etc/bash.bashrc && \
     echo "alias gs='git status'" >> /etc/profile && \
     echo "alias python='python3'" >> /etc/profile
 
+# root 사용자 비밀번호 설정
+RUN echo 'root:password' | chpasswd
+RUN echo 'jenkins:taejin' | chpasswd
 # Jenkins 사용자로 돌아감
 USER jenkins
 
@@ -35,4 +44,4 @@ EXPOSE 8080
 EXPOSE 50000
 
 # 기본 CMD로 Jenkins를 실행
-CMD ["jenkins"]
+CMD ["java", "-jar", "/usr/share/jenkins/jenkins.war"]
