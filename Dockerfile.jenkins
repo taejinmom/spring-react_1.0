@@ -1,0 +1,38 @@
+# Jenkins LTS 이미지를 기반으로 한다.
+FROM jenkins/jenkins:lts
+
+# 필요한 패키지 설치
+USER root
+RUN apt-get update && apt-get install -y \
+    git \
+    openjdk-17-jdk \
+    curl \
+    sudo \
+    unzip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Gradle 설치
+ENV GRADLE_VERSION=7.6.1
+RUN curl -Lo gradle.zip https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip && \
+    unzip gradle.zip -d /opt && \
+    rm gradle.zip && \
+    ln -s /opt/gradle-${GRADLE_VERSION}/bin/gradle /usr/bin/gradle
+
+# 모든 사용자에게 alias 적용
+RUN echo "alias ll='ls -la'" >> /etc/profile && \
+    echo "alias gs='git status'" >> /etc/profile && \
+    echo "alias python='python3'" >> /etc/profile
+
+# Jenkins 사용자로 돌아감
+USER jenkins
+
+# Gradle Wrapper의 실행 권한 설정
+# RUN chmod +x /var/jenkins_home/workspace/project_1/gradlew
+
+# 포트 노출
+EXPOSE 8080
+EXPOSE 50000
+
+# 기본 CMD로 Jenkins를 실행
+CMD ["jenkins"]

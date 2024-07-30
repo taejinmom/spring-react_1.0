@@ -1,0 +1,59 @@
+# Use a base image that has Java installed
+FROM openjdk:17-jdk-alpine
+
+# Variables
+ARG APP_NAME=project
+ARG APP_DIR=/var/app/$APP_NAME
+
+# Install packages (including bash)
+RUN apk --no-cache add \
+    openssh \
+    sudo \
+    bash \
+    vim \
+    openrc
+
+# Set the working directory in the container
+RUN mkdir -p -v -m 755 $APP_DIR
+RUN mkdir -p -v -m 755 /var/run/sshd
+WORKDIR $APP_DIR
+
+# Root 계정 비밀번호 설정
+RUN echo "root:password" | chpasswd
+
+# 새로운 사용자 추가 및 비밀번호 설정
+RUN adduser -D taejin && \
+    echo "taejin:taejin" | chpasswd && \
+    adduser taejin wheel
+
+# bash로 기본 셸 설정
+RUN sed -i -e 's|/bin/ash|/bin/bash|' /etc/passwd
+
+# 모든 사용자에게 alias 적용
+RUN echo "alias ll='ls -la'" >> /etc/profile && \
+    echo "alias gs='git status'" >> /etc/profile && \
+    echo "alias python='python3'" >> /etc/profile
+
+# SSH 설정: Permit root login 및 사용자의 비밀번호 인증 허용
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# 호스트 키 생성
+RUN ssh-keygen -A
+
+# 포트 노출
+EXPOSE 22
+EXPOSE 8111
+
+# Copy the jar file from the host to the container
+COPY ./build/libs/$APP_NAME-0.0.1-SNAPSHOT.jar $APP_DIR/$APP_NAME-0.0.1-SNAPSHOT.jar
+
+
+# SSH 서비스 시작 및 Spring Boot 애플리케이션 실행
+CMD ["/bin/sh", "-c", "rc-update add sshd && /usr/sbin/sshd && java -jar project-0.0.1-SNAPSHOT.jar"]
+# Specify the command to run the jar file
+# ENTRYPOINT ["java", "-jar", "project-0.0.1-SNAPSHOT.jar"]
+
+# Expose the port the app runs on
+# EXPOSE 8111
