@@ -1,38 +1,48 @@
-# Use a base image that has Java installed
-FROM openjdk:17-jdk-alpine
+# Base image
+FROM ubuntu:22.04
 
 # Variables
-ARG APP_NAME=project
-ARG APP_DIR=/var/app/$APP_NAME
 
-# Install packages (including bash)
-RUN apk --no-cache add \
-    openssh \
+# 환경 변수 설정
+ENV APP_NAME=project
+ENV APP_DIR=/var/app/$APP_NAME
+ENV APP_VERSION=0.0.1
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Seoul
+
+# 시간대 설치
+RUN apt-get update && \
+    apt-get install -y tzdata && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
+
+# 필수 패키지 및 JDK 설치
+RUN apt-get install -y openjdk-17-jdk \
+    openssh-server \
     sudo \
-    bash \
-    vim \
-    openrc
+    vim
 
-# Set the working directory in the container
-RUN mkdir -p -v -m 755 $APP_DIR
-RUN mkdir -p -v -m 755 /var/run/sshd
+# Gradle 설치
+RUN apt-get install -y wget unzip && \
+    wget https://services.gradle.org/distributions/gradle-7.6-bin.zip && \
+    unzip gradle-7.6-bin.zip -d /opt/ && \
+    ln -s /opt/gradle-7.6/bin/gradle /usr/bin/gradle && \
+    rm gradle-7.6-bin.zip
+
+# root 계정 비밀번호 설정
+RUN echo 'root:password' | chpasswd
+
+# 사용자 추가 및 권한 설정
+RUN useradd -m -s /bin/bash ecommerce && \
+    echo 'ecommerce:password' | chpasswd && \
+    usermod -aG sudo ecommerce && \
+    echo 'ecommerce ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+# 디렉토리 생성
+RUN mkdir -p -v -m 755 $APP_DIR && \
+    mkdir -p -v -m 755 /var/run/sshd
+
 WORKDIR $APP_DIR
-
-# Root 계정 비밀번호 설정
-RUN echo "root:password" | chpasswd
-
-# 새로운 사용자 추가 및 비밀번호 설정
-RUN adduser -D taejin && \
-    echo "taejin:taejin" | chpasswd && \
-    adduser taejin wheel
-
-# bash로 기본 셸 설정
-RUN sed -i -e 's|/bin/ash|/bin/bash|' /etc/passwd
-
-# 모든 사용자에게 alias 적용
-RUN echo "alias ll='ls -la'" >> /etc/profile && \
-    echo "alias gs='git status'" >> /etc/profile && \
-    echo "alias python='python3'" >> /etc/profile
 
 # SSH 설정: Permit root login 및 사용자의 비밀번호 인증 허용
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
@@ -46,14 +56,8 @@ RUN ssh-keygen -A
 EXPOSE 22
 EXPOSE 8111
 
-# Copy the jar file from the host to the container
-COPY ./build/libs/$APP_NAME-0.0.1-SNAPSHOT.jar $APP_DIR/$APP_NAME-0.0.1-SNAPSHOT.jar
-
+# 애플리케이션 JAR 파일 복사
+COPY ./build/libs/$APP_NAME-$APP_VERSION.jar $APP_DIR/$APP_NAME-$APP_VERSION.jar
 
 # SSH 서비스 시작 및 Spring Boot 애플리케이션 실행
-CMD ["/bin/sh", "-c", "rc-update add sshd && /usr/sbin/sshd && java -jar project-0.0.1-SNAPSHOT.jar"]
-# Specify the command to run the jar file
-# ENTRYPOINT ["java", "-jar", "project-0.0.1-SNAPSHOT.jar"]
-
-# Expose the port the app runs on
-# EXPOSE 8111
+CMD ["/bin/sh", "-c", "/usr/sbin/sshd && java -jar $APP_DIR/$APP_NAME-$APP_VERSION.jar"]

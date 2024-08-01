@@ -1,21 +1,36 @@
-# Jenkins LTS 이미지를 기반으로 한다.
-FROM jenkins/jenkins:lts
+# Base image
+FROM ubuntu:22.04
 
-# 필요한 패키지 설치
-USER root
+# Jenkins 설치를 위해 필요한 환경 변수 설정
+ENV JENKINS_HOME=/var/jenkins_home
+ENV JENKINS_VERSION=2.387.1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 필요한 패키지 설치 및 Jenkins GPG 키 추가
 RUN apt-get update && apt-get install -y \
     git \
     openjdk-17-jdk \
     curl \
     sudo \
+    sshpass \
     unzip \
     vim \
+    gnupg2 \
+    software-properties-common \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Jenkins GPG 키 추가
+RUN curl -fsSL https://pkg.jenkins.io/debian/jenkins.io.key | apt-key add - && \
+    echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list
+
+# Jenkins 설치
+RUN apt-get update && apt-get install -y jenkins && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # 서버 시간 설정
-RUN echo "Asia/Seoul" > /etc/timezone
-RUN ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime
+RUN echo "Asia/Seoul" > /etc/timezone && \
+    ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime
 
 # Gradle 설치
 ENV GRADLE_VERSION=7.6.1
@@ -25,23 +40,26 @@ RUN curl -Lo gradle.zip https://services.gradle.org/distributions/gradle-${GRADL
     ln -s /opt/gradle-${GRADLE_VERSION}/bin/gradle /usr/bin/gradle
 
 # 모든 사용자에게 alias 적용
-RUN echo "alias ll='ls -la'" >> /etc/profile && \
-    echo "alias ll='ls -la'" >> /etc/bash.bashrc && \
-    echo "alias gs='git status'" >> /etc/profile && \
-    echo "alias python='python3'" >> /etc/profile
+RUN echo "alias ll='ls -la'" >> /etc/bash.bashrc && \
+    echo "alias gs='git status'" >> /etc/bash.bashrc && \
+    echo "alias python='python3'" >> /etc/bash.bashrc
+
+# 호스트 키 생성
+RUN ssh-keygen -A
 
 # root 사용자 비밀번호 설정
 RUN echo 'root:password' | chpasswd
-RUN echo 'jenkins:taejin' | chpasswd
-# Jenkins 사용자로 돌아감
-USER jenkins
 
-# Gradle Wrapper의 실행 권한 설정
-# RUN chmod +x /var/jenkins_home/workspace/project_1/gradlew
+# Jenkins home 디렉토리 생성
+RUN mkdir -p $JENKINS_HOME && chown -R jenkins:jenkins $JENKINS_HOME
+
+# Serveo와의 SSH 연결을 위한 설정
+RUN apt-get install -y openssh-client && \
+    ssh-keyscan serveo.net >> /etc/ssh/known_hosts
 
 # 포트 노출
 EXPOSE 8080
 EXPOSE 50000
 
-# 기본 CMD로 Jenkins를 실행
-CMD ["java", "-jar", "/usr/share/jenkins/jenkins.war"]
+# CMD로 Jenkins와 Serveo를 실행
+CMD ["bash", "-c", "service jenkins start && ssh -o StrictHostKeyChecking=no -R 80:localhost:8080 serveo.net"]
