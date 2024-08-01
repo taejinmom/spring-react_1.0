@@ -20,12 +20,10 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Jenkins GPG 키 추가
-RUN curl -fsSL https://pkg.jenkins.io/debian/jenkins.io.key | apt-key add - && \
-    echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list
-
 # Jenkins 설치
-RUN apt-get update && apt-get install -y jenkins && \
+RUN curl -fsSL https://pkg.jenkins.io/debian/jenkins.io.key | apt-key add - && \
+    echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list && \
+    apt-get update && apt-get install -y jenkins && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # 서버 시간 설정
@@ -44,6 +42,11 @@ RUN echo "alias ll='ls -la'" >> /etc/bash.bashrc && \
     echo "alias gs='git status'" >> /etc/bash.bashrc && \
     echo "alias python='python3'" >> /etc/bash.bashrc
 
+# SSH 키 생성
+RUN mkdir -p /var/jenkins_home/.ssh && \
+    ssh-keygen -t rsa -b 2048 -C "jinah@project.com" -f /var/jenkins_home/.ssh/id_rsa -N "" && \
+    chown -R jenkins:jenkins /var/jenkins_home/.ssh
+
 # 호스트 키 생성
 RUN ssh-keygen -A
 
@@ -54,8 +57,10 @@ RUN echo 'root:password' | chpasswd
 RUN mkdir -p $JENKINS_HOME && chown -R jenkins:jenkins $JENKINS_HOME
 
 # Serveo와의 SSH 연결을 위한 설정
-RUN apt-get install -y openssh-client && \
-    ssh-keyscan serveo.net >> /etc/ssh/known_hosts
+RUN ssh-keyscan serveo.net >> /etc/ssh/known_hosts
+
+# Copy the logback.xml configuration file
+COPY jenkins_logback.xml /var/jenkins_home/logback.xml
 
 # 포트 노출
 EXPOSE 8080
