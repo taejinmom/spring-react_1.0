@@ -26,6 +26,12 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+bootJar {
+	enabled = true  // bootJar는 활성화
+	archiveClassifier.set("")  // 기본 분류자인 -plain 제거
+}
+
 // SSL/TLS 프로토콜 설정
 tasks.withType(JavaExec) {
     jvmArgs += ["-Dhttps.protocols=TLSv1.2"]
