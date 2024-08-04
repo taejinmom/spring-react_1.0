@@ -27,12 +27,40 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+task copyHtml(type: Copy) {
+	from 'src/main/resources' // HTML 파일이 위치한 디렉토리
+	into 'build/classes/java/main' // HTML 파일이 복사될 디렉토리
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE // 중복 파일 처리 전략 설정
+}
+
+// 'build' 전에 'copyHtml' 작업을 실행하도록 설정
+build.dependsOn copyHtml
+
 bootJar {
+	// 'bootJar' 작업이 'copyHtml' 작업을 실행하도록 설정
+	dependsOn copyHtml
+	from 'build/classes/java/main' // JAR 파일에 포함될 디렉토리
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE // 중복 파일 처리 전략 설정
+
 	enabled = true  // bootJar는 활성화
 	archiveClassifier.set("")  // 기본 분류자인 -plain 제거
 }
 
+jar {
+	enabled = false
+}
+
+// 'resolveMainClassName' 작업이 'copyHtml' 작업을 실행하도록 설정
+tasks.named('resolveMainClassName') {
+	dependsOn copyHtml
+}
+
+// 'compileTestJava' 작업이 'copyHtml' 작업 이후에 실행되도록 설정
+tasks.named('compileTestJava') {
+	dependsOn copyHtml
+}
+
 // SSL/TLS 프로토콜 설정
 tasks.withType(JavaExec) {
-    jvmArgs += ["-Dhttps.protocols=TLSv1.2"]
+	jvmArgs += ["-Dhttps.protocols=TLSv1.2"]
 }
