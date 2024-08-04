@@ -47,6 +47,11 @@ RUN mkdir -p /var/jenkins_home/.ssh && \
     ssh-keygen -t rsa -b 2048 -C "jinah@project.com" -f /var/jenkins_home/.ssh/id_rsa -N "" && \
     chown -R jenkins:jenkins /var/jenkins_home/.ssh
 
+# 서비스가 죽지 않도록 주기적으로 패킷 전송 스크립트 복사
+COPY keep-alive.sh /var/jenkins_home/keep-alive.sh
+RUN chmod +x /var/jenkins_home/keep-alive.sh
+
+
 # 호스트 키 생성
 RUN ssh-keygen -A
 

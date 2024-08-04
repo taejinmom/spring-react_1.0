@@ -60,4 +60,4 @@ EXPOSE 8111
 COPY ./build/libs/$APP_NAME-$APP_VERSION.jar $APP_DIR/$APP_NAME-$APP_VERSION.jar
 
 # SSH 서비스 시작 및 Spring Boot 애플리케이션 실행
-CMD ["/bin/sh", "-c", "/usr/sbin/sshd && java -jar $APP_DIR/$APP_NAME-$APP_VERSION.jar"]
+CMD ["/bin/sh", "-c", "/usr/sbin/sshd && java -jar $APP_DIR/$APP_NAME-$APP_VERSION.jar & tail -f /dev/null"]

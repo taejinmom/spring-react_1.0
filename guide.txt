@@ -1,0 +1,96 @@
+### spring docker
+
+# DockerFile 빌드
+docker build -f  Dockerfile.spring -t spring_image .
+docker build -f  Dockerfile.jenkins -t jenkins_image .
+
+# container 실행
+docker run -d --privileged --network my_network --name spirng_container -p 2222:22 -p 21:21 -p 40000-40005:40000-40005 -p 5432:5432 -p 8111:8111 -p 8080:8080 spring_image
+docker run -d --privileged --network my_network --name jenkins_container -p 8081:8080 -p 50000:50000 -v jenkins_home:/var/jenkins_home jenkins_image 
+
+# java 설정에 추가
+update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-17-openjdk-amd64/bin/java 1
+update-alternatives --install /usr/bin/javac javac /usr/lib/jvm/java-17-openjdk-amd64/bin/javac 1
+
+# java 설정 변경(버전선택)
+update-alternatives --config java
+update-alternatives --config javac
+
+# 배포한 파일 서버에서 실행 방법
+java -jar /app/testServer-0.0.1-SNAPSHOT.jar
+
+# cli로 sftp 파일전송 comand
+scp -P 2222 D:\workspace\study\toy_project_1\project\build\libs\project-0.0.1-SNAPSHOT.jar root@192.168.1.166:/app
+
+scp -P 포트번호 보낼파일경로 받는서버정보:받는경로
+
+------------------------------------------------------------------
+
+## jenkins 사용 방법
+빌드 및 컨테이너 생성
+docker build -f  Dockerfile.jenkins -t jenkins_image .
+docker run -d --privileged --network my_network --name jenkins_container -p 8081:8080 -p 50000:50000 -v jenkins_home:/var/jenkins_home jenkins_image 
+
+# admin 패스워드 확인
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+
+# 브라우저에서 hostip:8081 입력(8081 -> docker에서 8080으로 마운트되기때문에)
+jenkins
+
+sudo visudo
+{계정} ALL=(ALL) NOPASSWD: ALL
+
+
+## 빌드 후 조치에 넣을 값
+
+#!/bin/bash
+
+# Variables
+APP_NAME="my-app"
+APP_DIR="/var/www/$APP_NAME"
+REPO_DIR="/var/jenkins_home/workspace/project"
+SERVER_USER="taejin"
+SERVER_IP="192.168.1.166"
+SERVER_PORT="2222"
+SUDO_PASSWORD="taejin"  # 실제 sudo 비밀번호로 변경
+JAR_FILE=$(basename $REPO_DIR/build/libs/*.jar)
+
+# Build the project
+cd $REPO_DIR
+chmod +x ./gradlew
+./gradlew build
+
+# Create the application directory on the server if it doesn't exist
+ssh -p $SERVER_PORT $SERVER_USER@$SERVER_IP "echo $SUDO_PASSWORD | sudo -S mkdir -p $APP_DIR && sudo chown $SERVER_USER:$SERVER_USER $APP_DIR"
+
+# Copy build artifacts to the server
+scp -P $SERVER_PORT $REPO_DIR/build/libs/*.jar $SERVER_USER@$SERVER_IP:$APP_DIR
+
+# Restart the application
+ssh -p $SERVER_PORT $SERVER_USER@$SERVER_IP << EOF
+  # Stop any running instance of the application
+  ps aux | grep $JAR_FILE | grep -v grep | awk '{print \$2}' | xargs -r kill -9
+  
+  # Start the application
+  nohup java -jar $APP_DIR/$JAR_FILE > $APP_DIR/nohup.out 2>&1 &
+EOF
+
+
+------------------------------------------------------------------
+
+## ssh 
+SSH 접속 시 패스워드 입력 없이 인증을 위해 SSH 키를 등록하는 방법은 다음과 같습니다.
+
+1. SSH 키 생성
+먼저 로컬 컴퓨터에서 SSH 키를 생성합니다.
+
+sh
+코드 복사
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+명령어를 입력하면 다음과 같은 출력이 나옵니다:
+
+vbnet
+코드 복사
+Generating public/private rsa key pair.
+Enter file in which to save the key (/home/your_username/.ssh/id_rsa):
+기본 위치에 저장하려면 엔터 키를 누릅니다. 다음으로, 키에 비밀번호를 설정할 것인지 묻습니다. 비밀번호 없이 진행하려면 그냥 엔터 키를 누릅니다.
