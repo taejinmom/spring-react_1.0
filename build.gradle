@@ -29,7 +29,6 @@ tasks.named('test') {
 
 bootJar {
 	duplicatesStrategy = DuplicatesStrategy.EXCLUDE // 중복 파일 처리 전략 설정
-
 	enabled = true  // bootJar는 활성화
 	archiveClassifier.set("")  // 기본 분류자인 -plain 제거
 }
