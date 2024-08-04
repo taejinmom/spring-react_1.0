@@ -64,3 +64,4 @@ tasks.named('compileTestJava') {
 tasks.withType(JavaExec) {
 	jvmArgs += ["-Dhttps.protocols=TLSv1.2"]
 }
+
